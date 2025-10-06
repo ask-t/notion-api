@@ -164,11 +164,63 @@ http://localhost:3001/api
 
 ---
 
+## 🚀 Vercelへのデプロイ
+
+### 前提条件
+
+- Vercelアカウント
+- GitHubリポジトリ
+
+### デプロイ手順
+
+#### 1. Vercel CLIでデプロイ
+
+```bash
+# Vercel CLIをインストール（初回のみ）
+npm install -g vercel
+
+# ログイン
+vercel login
+
+# デプロイ
+vercel
+```
+
+#### 2. Vercel Dashboardからデプロイ
+
+1. [Vercel Dashboard](https://vercel.com/dashboard)にアクセス
+2. 「New Project」をクリック
+3. GitHubリポジトリをインポート
+4. 自動的にビルドとデプロイが開始されます
+
+### 環境変数の設定
+
+Vercel Dashboardで以下の環境変数を設定してください：
+
+```
+NODE_ENV=production
+```
+
+### デプロイ後のURL
+
+```
+https://your-project-name.vercel.app
+```
+
+Swagger UIは以下のURLでアクセスできます：
+
+```
+https://your-project-name.vercel.app/api
+```
+
+---
+
 ## 🔗 関連リンク
 
 - [Notion API ドキュメント](https://developers.notion.com/)
 - [NestJS ドキュメント](https://docs.nestjs.com/)
 - [Swagger/OpenAPI](https://swagger.io/)
+- [Vercel ドキュメント](https://vercel.com/docs)
 
 ---
 

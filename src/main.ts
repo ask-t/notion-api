@@ -34,8 +34,13 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  await app.listen(3001);
-  console.log('🚀 アプリケーションが http://localhost:3001 で起動しました');
-  console.log('📚 Swagger UI は http://localhost:3001/api で利用できます');
+  const port = process.env.PORT || 3001;
+  await app.listen(port);
+  console.log(`🚀 アプリケーションが http://localhost:${port} で起動しました`);
+  console.log(`📚 Swagger UI は http://localhost:${port}/api で利用できます`);
 }
-bootstrap();
+
+// 開発環境ではbootstrapを実行
+if (require.main === module) {
+  bootstrap();
+}
