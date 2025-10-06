@@ -1,5 +1,7 @@
 # 📝 API リファレンス
 
+Notion API連携サーバーのエンドポイント一覧です。
+
 ## ベースURL
 
 ```
@@ -21,7 +23,17 @@ Content-Type: application/json
 
 ---
 
-## エンドポイント
+## 📚 目次
+
+- [英単語学習](#英単語学習)
+  - [POST /notion/add-word/:databaseId](#post-notionadd-worddatabaseid)
+- [センテンス学習](#センテンス学習)
+  - [POST /notion/create-sentence-database/:pageId](#post-notioncreate-sentence-databasepageid)
+  - [POST /notion/add-sentence/:databaseId](#post-notionadd-sentencedatabaseid)
+
+---
+
+## 英単語学習
 
 ### `POST /notion/add-word/:databaseId`
 
@@ -84,37 +96,15 @@ curl -X POST http://localhost:3001/notion/add-word/YOUR_DATABASE_ID \
 
 #### レスポンス
 
-**成功時（200 OK）:**
-
 ```json
 {
   "message": "✅ 'punctual' added to Notion."
 }
 ```
 
-**エラー（400 Bad Request）:**
-
-```json
-{
-  "statusCode": 400,
-  "message": "Missing required Notion headers.",
-  "error": "Bad Request"
-}
-```
-
-**エラー（500 Internal Server Error）:**
-
-```json
-{
-  "statusCode": 500,
-  "message": "Failed to add word to Notion.",
-  "error": "Internal Server Error"
-}
-```
-
 ---
 
-## 作成されるページ構造
+## 作成されるページ構造（英単語）
 
 APIで単語を追加すると、以下のような構造でNotionページが作成されます：
 
@@ -147,9 +137,160 @@ APIで単語を追加すると、以下のような構造でNotionページが�
 
 ---
 
+## センテンス学習
+
+### `POST /notion/create-sentence-database/:pageId`
+
+日本語センテンス学習用のデータベースを作成します。
+
+#### パラメータ
+
+| パラメータ | 場所 | 型 | 必須 | 説明 |
+|---|---|---|---|---|
+| `pageId` | Path | string | ✅ | 親ページのID（データベースを作成する場所） |
+| `Authorization` | Header | string | ✅ | `Bearer YOUR_API_KEY` |
+
+#### リクエスト例
+
+```bash
+curl -X POST http://localhost:3001/notion/create-sentence-database/284d7fb8403e80c5b878f651bbbd127b \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer secret_xxxxxxxxxxxx"
+```
+
+#### レスポンス
+
+**成功時（200 OK）:**
+
+```json
+{
+  "message": "✅ データベース「日本語→英語 センテンス学習」を作成しました",
+  "databaseId": "284d7fb8403e801ca085fb7e9fdaf538"
+}
+```
+
+#### 作成されるデータベース構造
+
+| プロパティ | 型 | 説明 |
+|---|---|---|
+| センテンス | Title | 日本語のセンテンス（タイトル） |
+| 習得度 | Status | インプット中 / 練習中 / 習得済み |
+| 難易度 | Rich Text | A1〜C2レベル表記 |
+| カテゴリ | Select | 日常会話 / ビジネス / 旅行 / アカデミック / その他 |
+| 追加日 | Created Time | 自動設定 |
+
+---
+
+### `POST /notion/add-sentence/:databaseId`
+
+日本語センテンスを英訳・分析してNotionデータベースに追加します。
+
+#### 💡 動的プロパティ設定
+
+このエンドポイントは、データベースの構造を自動的に取得し、**存在するプロパティのみ設定**します。
+
+**仕組み:**
+1. データベースIDからプロパティ一覧を取得
+2. 存在するプロパティのみをリクエストに含める
+3. 存在しないプロパティは自動でスキップ
+
+**メリット:**
+- ✅ 自分好みにデータベースをカスタマイズできる
+- ✅ プロパティの追加・削除が自由
+- ✅ 「習得度」などのプロパティがなくてもエラーにならない
+
+#### パラメータ
+
+| パラメータ | 場所 | 型 | 必須 | 説明 |
+|---|---|---|---|---|
+| `databaseId` | Path | string | ✅ | NotionデータベースのID |
+| `Authorization` | Header | string | ✅ | `Bearer YOUR_API_KEY` |
+
+#### リクエストボディ
+
+```json
+{
+  "センテンス": "string",       // ✅ 必須: 日本語のセンテンス
+  "英訳": "string",             // ✅ 必須: 英語訳（複数可、\nで区切る）
+  "重要表現": "string",         // ✅ 必須: キーフレーズと説明
+  "文法ポイント": "string",     // ✅ 必須: 文法の説明
+  "類似表現": "string",         // ✅ 必須: 類似した英語表現
+  "使用場面": "string",         // ✅ 必須: 使用シーン
+  "注意点": "string",           // ✅ 必須: 注意すべきポイント
+  "難易度": "string",           // 任意: 例: A2（英検4〜3級レベル）
+  "カテゴリ": "string"          // 任意: 日常会話 / ビジネス / 旅行 など
+}
+```
+
+#### リクエスト例
+
+```bash
+curl -X POST http://localhost:3001/notion/add-sentence/284d7fb8403e801ca085fb7e9fdaf538 \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer secret_xxxxxxxxxxxx" \
+  -d '{
+    "センテンス": "明日は早く起きるつもりです",
+    "英訳": "I'\''m going to wake up early tomorrow.\nI plan to wake up early tomorrow.\nI intend to get up early tomorrow morning.",
+    "重要表現": "be going to（〜するつもり）: 意図や予定を表す\nwake up（目を覚ます）: 自動詞として使用\nget up（起きる）: ベッドから出る動作",
+    "文法ポイント": "be going to + 動詞の原形：近い未来の予定や意図を表す表現。will よりも計画性のあるニュアンス",
+    "類似表現": "I will wake up early tomorrow（よりシンプルな未来形）\nI'\''m planning to wake up early tomorrow（planningで計画性を強調）",
+    "使用場面": "カジュアル・日常会話。友人や家族との会話で自然に使える表現",
+    "注意点": "wake up と get up の違いに注意。wake upは「目が覚める」、get upは「ベッドから起き上がる」という違いがある",
+    "難易度": "A2（英検4〜3級レベル）",
+    "カテゴリ": "日常会話"
+  }'
+```
+
+#### レスポンス
+
+```json
+{
+  "message": "✅ '明日は早く起きるつもりです' をNotionに追加しました。"
+}
+```
+
+---
+
+## 作成されるページ構造（センテンス）
+
+APIでセンテンスを追加すると、以下のような構造でNotionページが作成されます：
+
+### プロパティ（動的設定）
+
+| プロパティ | 型 | 設定条件 |
+|---|---|---|
+| センテンス | Title | 必ず設定される |
+| 習得度 | Status | データベースに存在する場合のみ |
+| カテゴリ | Select | データベースに存在し、リクエストに含まれる場合のみ |
+| 難易度 | Rich Text | データベースに存在し、リクエストに含まれる場合のみ |
+| 追加日 | Created Time | 自動設定 |
+
+### ページコンテンツ
+
+ページ内には以下のブロックが自動的に作成されます：
+
+1. **Callout（英訳）** - 📝 アイコン、青色背景
+   - 複数の英訳パターン
+2. **Toggle（重要表現）** - 青色太字タイトル
+   - キーフレーズとその説明
+3. **Toggle（文法ポイント）** - 青色太字タイトル
+   - 使用されている文法の解説
+4. **Callout（類似表現）** - 💡 アイコン、黄色背景
+   - 別の言い回しとニュアンスの違い
+5. **Callout（使用場面）** - 🎯 アイコン、灰色背景
+   - どのような状況で使うか
+6. **Callout（注意点）** - ⚠️ アイコン、赤色背景
+   - 間違えやすいポイント
+7. **Callout（自由記述）** - ✏️ アイコン、黄色背景
+   - 自分用のメモ欄
+
+---
+
 ## 使用例
 
 ### iPhone ショートカットとの連携
+
+#### 英単語学習
 
 ```
 [ショートカット: 単語を学ぶ]
@@ -163,7 +304,23 @@ APIで単語を追加すると、以下のような構造でNotionページが�
 4. 完了通知
 ```
 
-詳細は [ChatGPTプロンプト](./CHATGPT_PROMPT.md) を参照してください。
+詳細は [英単語プロンプト](./CHATGPT_PROMPT.md) を参照してください。
+
+#### センテンス学習
+
+```
+[ショートカット: センテンスを学ぶ]
+  ↓
+1. 日本語文を入力 or テキストを選択
+  ↓
+2. ChatGPT APIで英訳と分析を取得
+  ↓
+3. このAPIで Notionに追加
+  ↓
+4. 完了通知
+```
+
+詳細は [センテンスプロンプト](./SENTENCE_PROMPT.md) を参照してください。
 
 ---
 
@@ -184,32 +341,18 @@ Swagger UIでは：
 
 ---
 
-## レート制限
-
-現在、このAPIにはレート制限はありません。ただし、Notion APIには以下の制限があります：
-
-- **平均**: 3リクエスト/秒
-- **バースト**: 最大300リクエスト（60秒間）
-
-大量のデータを追加する場合は、適切な間隔を空けることを推奨します。
-
----
-
-## エラーコード一覧
-
-| コード | 説明 | 原因 |
-|---|---|---|
-| 400 | Bad Request | APIキーまたはデータベースIDが不足 |
-| 401 | Unauthorized | APIキーが無効 |
-| 403 | Forbidden | Integrationに権限がない |
-| 404 | Not Found | データベースが見つからない |
-| 429 | Too Many Requests | レート制限超過 |
-| 500 | Internal Server Error | サーバー内部エラー |
-
----
-
 ## 次のステップ
 
-- [ChatGPTプロンプト](./CHATGPT_PROMPT.md) - AIと連携した使い方
+### 詳細なガイド
+
+- [英単語プロンプト](./CHATGPT_PROMPT.md) - 英単語学習用ChatGPTプロンプト
+- [センテンスプロンプト](./SENTENCE_PROMPT.md) - センテンス学習用ChatGPTプロンプト
+- [開発用API](./DEV_API.md) - 認証不要のテスト用エンドポイント
 - [トラブルシューティング](./TROUBLESHOOTING.md) - 問題解決ガイド
+
+### 便利な機能
+
+**動的プロパティ設定**: `add-sentence`エンドポイントは、データベース構造を自動検出し、存在するプロパティのみ設定します。これにより、自分好みにカスタマイズしたデータベースでもエラーなく使用できます。
+
+**テンプレートページ**: 開発用APIの`create-template-pages`を使用すると、空のテンプレートページを作成し、Notion上で自由にカスタマイズしてからデータベースに変換できます。
 
