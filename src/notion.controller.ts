@@ -15,6 +15,7 @@ import {
   ApiBearerAuth
 } from '@nestjs/swagger';
 import { AddWordDto } from './dto/add-word.dto';
+import { AddSentenceDto } from './dto/add-sentence.dto';
 import { AddWordResponseDto } from './dto/response.dto';
 import { NotionService } from './notion.service';
 
@@ -59,5 +60,79 @@ export class NotionController {
 
     // サービスに処理を委譲
     return this.notionService.addWord(data, notionApiKey, databaseId);
+  }
+
+  @Post('create-sentence-database/:pageId')
+  @ApiOperation({ summary: '日本語センテンス学習用データベースを作成' })
+  @ApiBearerAuth('bearer')
+  @ApiResponse({
+    status: 200,
+    description: 'データベースが正常に作成されました',
+    type: AddWordResponseDto
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'リクエストパラメータが不正です'
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'サーバーエラー'
+  })
+  async createSentenceDatabase(
+    @Headers() headers: Record<string, string>,
+    @Param('pageId') pageId: string
+  ): Promise<AddWordResponseDto> {
+    // ヘッダーからAPIキーを取得
+    const notionApiKey = headers['authorization']?.replace('Bearer ', '') ||
+      headers['Authorization']?.replace('Bearer ', '');
+
+    // バリデーション
+    if (!notionApiKey || !pageId) {
+      throw new HttpException(
+        'Missing required Notion headers.',
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
+    // サービスに処理を委譲
+    return this.notionService.createSentenceDatabase(notionApiKey, pageId);
+  }
+
+  @Post('add-sentence/:databaseId')
+  @ApiOperation({ summary: '日本語センテンスをNotionデータベースに追加' })
+  @ApiBearerAuth('bearer')
+  @ApiBody({ type: AddSentenceDto })
+  @ApiResponse({
+    status: 200,
+    description: 'センテンスが正常に追加されました',
+    type: AddWordResponseDto
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'リクエストパラメータが不正です'
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'サーバーエラー'
+  })
+  async addSentence(
+    @Body() data: AddSentenceDto,
+    @Headers() headers: Record<string, string>,
+    @Param('databaseId') databaseId: string
+  ): Promise<AddWordResponseDto> {
+    // ヘッダーからAPIキーを取得
+    const notionApiKey = headers['authorization']?.replace('Bearer ', '') ||
+      headers['Authorization']?.replace('Bearer ', '');
+
+    // バリデーション
+    if (!notionApiKey || !databaseId) {
+      throw new HttpException(
+        'Missing required Notion headers.',
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
+    // サービスに処理を委譲
+    return this.notionService.addSentence(data, notionApiKey, databaseId);
   }
 }

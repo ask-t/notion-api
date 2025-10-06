@@ -5,17 +5,19 @@ import { AddSentenceDto } from './dto/add-sentence.dto';
 import { AddWordResponseDto } from './dto/response.dto';
 
 @Injectable()
-export class NotionService {
+export class DevNotionService {
   private readonly NOTION_VERSION = '2022-06-28';
+  private readonly NOTION_API_KEY = 'secret_LSj6NUeRXVHJSB1oyIR0uy7zPYlIEIhgoHnBo2bmvtE';
+  private readonly DEFAULT_PAGE_ID = '284d7fb8-403e-80c5-b878-f651bbbd127b';
 
   /**
-   * Notion APIクライアントを作成
+   * Notion APIクライアントを作成（開発用：トークンハードコード）
    */
-  private createNotionClient(apiKey: string): AxiosInstance {
+  private createNotionClient(): AxiosInstance {
     return axios.create({
       baseURL: 'https://api.notion.com/v1',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${this.NOTION_API_KEY}`,
         'Notion-Version': this.NOTION_VERSION,
         'Content-Type': 'application/json'
       }
@@ -27,11 +29,10 @@ export class NotionService {
    */
   async addWord(
     data: AddWordDto,
-    notionApiKey: string,
     databaseId: string
   ): Promise<AddWordResponseDto> {
     try {
-      const notion = this.createNotionClient(notionApiKey);
+      const notion = this.createNotionClient();
       const word = data.word;
 
       // ページを作成
@@ -202,20 +203,18 @@ export class NotionService {
   }
 
   /**
-   * 日本語センテンス学習用データベースを作成
+   * 日本語センテンス学習用データベースを作成（開発用：page idハードコード）
    */
   async createSentenceDatabase(
-    notionApiKey: string,
-    pageId: string,
     title: string = '日本語→英語 センテンス学習'
   ): Promise<AddWordResponseDto> {
     try {
-      const notion = this.createNotionClient(notionApiKey);
+      const notion = this.createNotionClient();
 
       const response = await notion.post('/databases', {
         parent: {
           type: 'page_id',
-          page_id: pageId
+          page_id: this.DEFAULT_PAGE_ID
         },
         title: [
           {
@@ -249,9 +248,73 @@ export class NotionService {
         databaseId: response.data.id
       };
     } catch (err) {
-      console.error('Error creating sentence database:', err.response?.data || err.message);
+      const errorMessage = err.response?.data || err.message;
+      console.error('Error creating sentence database:', errorMessage);
       throw new HttpException(
-        'Failed to create sentence database.',
+        `Failed to create sentence database: ${JSON.stringify(errorMessage)}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * テンプレートページ（空のページ）を通常のページとして作成
+   */
+  async createTemplatePages(): Promise<AddWordResponseDto> {
+    try {
+      const notion = this.createNotionClient();
+
+      // テンプレートページのタイトル
+      const templateTitles = [
+        "テンプレート 1",
+        "テンプレート 2",
+        "テンプレート 3"
+      ];
+
+      let createdCount = 0;
+
+      for (const title of templateTitles) {
+        // 通常のページとして作成（データベースではない）
+        const pageRes = await notion.post('/pages', {
+          parent: {
+            page_id: this.DEFAULT_PAGE_ID
+          },
+          properties: {
+            title: {
+              title: [{ text: { content: title } }]
+            }
+          }
+        });
+
+        const pageId = pageRes.data.id;
+
+        // 空のブロック構造を作成
+        const blocks = [
+          this.createCalloutWithTitle("英訳", "", "📝", "blue_background"),
+          this.createToggle("重要表現", ""),
+          this.createToggle("文法ポイント", ""),
+          this.createCalloutWithTitle("類似表現", "", "💡", "yellow_background"),
+          this.createCalloutWithTitle("使用場面", "", "🎯", "gray_background"),
+          this.createCalloutWithTitle("注意点", "", "⚠️", "red_background"),
+          this.createCalloutWithTitle("自由記述", "", "✏️", "yellow_background")
+        ];
+
+        // ブロックを追加
+        await notion.patch(`/blocks/${pageId}/children`, {
+          children: blocks
+        });
+
+        createdCount++;
+      }
+
+      return {
+        message: `✅ 空のテンプレートページを ${createdCount} 件作成しました（Notionでデータベースに変換してください）`
+      };
+    } catch (err) {
+      const errorMessage = err.response?.data || err.message;
+      console.error('Error creating template pages:', errorMessage);
+      throw new HttpException(
+        `Failed to create template pages: ${JSON.stringify(errorMessage)}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -262,11 +325,10 @@ export class NotionService {
    */
   async addSentence(
     data: AddSentenceDto,
-    notionApiKey: string,
     databaseId: string
   ): Promise<AddWordResponseDto> {
     try {
-      const notion = this.createNotionClient(notionApiKey);
+      const notion = this.createNotionClient();
       const sentence = data.センテンス;
 
       // データベースの構造を取得
